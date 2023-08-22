@@ -26,6 +26,7 @@ import org.springframework.web.client.RestTemplate;
 import javax.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PlatformServiceImpl implements PlatformService {
@@ -127,7 +128,7 @@ public class PlatformServiceImpl implements PlatformService {
 
     @Override
     @Scheduled(fixedDelay = 600000)
-    public void refreshPlatformData() {
+    public String refreshPlatformData() {
         List<Platform> platformsFromApi = getAllPlatforms();
 
         platformsFromApi.forEach(platform -> {
@@ -142,6 +143,8 @@ public class PlatformServiceImpl implements PlatformService {
                 platformRepository.save(apiPlatform);
             }
         }
+
+        return "Platform data refreshed from API.";
     }
 
     @Override
@@ -168,12 +171,117 @@ public class PlatformServiceImpl implements PlatformService {
         }
     }
 
+    @Override
+    public String changePlatform(String platformIdOrName, Platform selectedPlatform) {
+        try {
+            Platform platform = null;
+            try {
+                Long platformId = Long.parseLong(platformIdOrName);
+                platform = platformRepository.findById(platformId).orElse(null);
+            } catch (NumberFormatException ignored) {
+                platform = platformRepository.findByName(platformIdOrName).orElse(null);
+            }
+
+            if (platform != null) {
+                if (platformRepository.existsById(platform.getId())) {
+                    selectedPlatform = platform;
+                    return "Selected platform: " + selectedPlatform.getName();
+                } else {
+                    return "Platform exists in the database but is not available for selection.";
+                }
+            } else {
+                List<String> platformNamesInDatabase = platformRepository.findAllPlatformIdsAndNames().stream()
+                        .map(data -> (String) data[1])
+                        .collect(Collectors.toList());
+                return "Platform not found in the database.\nPlatform names in the database: " + platformNamesInDatabase;
+            }
+        } catch (GamesAPIException e) {
+            return e.getMessage();
+        }
+    }
+
+    @Override
+    public String getGamesForPlatform(int pageNumber, int pageSize, String platformIdOrName) {
+        if (pageNumber < 1) {
+            return "Invalid page number. Page number must be greater than or equal to 1.";
+        }
+        if (pageSize < 1) {
+            return "Invalid page size. Page size must be greater than or equal to 1.";
+        }
+        try {
+            Platform selectedPlatform;
+            try {
+                Long platformId = Long.parseLong(platformIdOrName);
+                selectedPlatform = getPlatformById(platformId);
+            } catch (NumberFormatException ex) {
+                selectedPlatform = getPlatformByName(platformIdOrName);
+            }
+
+            if (selectedPlatform == null) {
+                return "Platform not found";
+            }
+
+            List<Game> games = getGamesForPlatformWithPagination(selectedPlatform.getId(), pageNumber, pageSize);
+
+            StringBuilder output = new StringBuilder();
+            output.append("Games for platform: ").append(selectedPlatform.getName()).append("\n");
+
+            for (int i = 0; i < games.size(); i++) {
+                Game game = games.get(i);
+                output.append((i + 1) + ". " + game.getName()).append("\n");
+            }
+            int totalGames = games.size();
+            int totalPages = (totalGames + pageSize - 1) / pageSize;
+            output.append("\nPage ").append(pageNumber).append(" of ").append(totalPages).append("\n");
+            output.append("Use 'game-details <game_number>' to view details of a specific game.\n");
+
+            return output.toString();
+        } catch (GamesAPIException e) {
+            return "Error occurred while fetching games for the selected platform: " + e.getMessage();
+        } catch (Exception e) {
+            return "Unexpected error occurred: " + e.getMessage();
+        }
+    }
+
+    @Override
+    public String viewGameDetails(Platform selectedPlatform, int gameNumber) {
+        if (selectedPlatform == null) {
+            return "No platform selected. Please select a platform first.";
+        }
+
+        List<Game> games = getGamesForPlatformWithPagination(selectedPlatform.getId(), 1, 20);
+
+        if (gameNumber < 1 || gameNumber > games.size()) {
+            return "Invalid game number. Please select a valid game number from the list.";
+        }
+
+        Game selectedGame = games.get(gameNumber - 1);
+
+        if (selectedGame.getDescription() == null) {
+            try {
+                Game detailedGameInfo = getGameDetailsBySlug(selectedGame.getSlug());
+                selectedGame.setDescription(detailedGameInfo.getDescription());
+                gameRepository.save(selectedGame);
+            } catch (GamesAPIException e) {
+                return "Error occurred while fetching game details: " + e.getMessage();
+            }
+        }
+        return detailsForGame(selectedGame);
+    }
+
     @PostConstruct
     public void initializePlatforms() {
         if (platformRepository.count() == 0) {
             List<Platform> platformsFromApi = getAllPlatforms();
             platformRepository.saveAll(platformsFromApi);
         }
+    }
+
+    private static String detailsForGame(Game selectedGame) {
+        return "Details for game " + selectedGame.getName() + ":\n"
+                + "Release Date: " + selectedGame.getReleaseDate() + "\n"
+                + "Description: " + selectedGame.getDescription() + "\n"
+                + "------------------------------------------";
     }
 
     private void updatePlatformAttributes(Platform existingPlatform, Platform apiPlatform) {

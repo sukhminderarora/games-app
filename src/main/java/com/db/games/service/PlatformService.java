@@ -17,7 +17,13 @@ public interface PlatformService {
 
     List<Game> getGamesForPlatformWithPagination(Long platformId, int pageNumber, int pageSize);
 
-    void refreshPlatformData();
+    String refreshPlatformData();
 
     Game getGameDetailsBySlug(String gameSlug);
+
+    String changePlatform(String platformIdOrName, Platform selectedPlatform);
+
+    String getGamesForPlatform(int pageNumber, int pageSize, String platformIdOrName);
+
+    String viewGameDetails(Platform selectedPlatform, int gameNumber);
 }
