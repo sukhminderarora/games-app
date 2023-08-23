@@ -8,6 +8,7 @@ import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -21,13 +22,11 @@ import javax.persistence.Table;
 @Table
 @Getter
 @Setter
-@EqualsAndHashCode
 @ToString
 @NoArgsConstructor
 public class Platform implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
     private String name;
     private String slug;
@@ -37,6 +36,6 @@ public class Platform implements Serializable {
     private int yearStart;
     private int yearEnd;
 
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "gamePlatformId.platform")
-    private List<GamePlatform> platform;
+    /*@OneToMany(fetch = FetchType.LAZY, mappedBy = "gamePlatformId.platform")
+    private List<GamePlatform> platform;*/
 }

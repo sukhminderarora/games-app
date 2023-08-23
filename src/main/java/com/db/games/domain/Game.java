@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -36,7 +37,25 @@ public class Game implements Serializable {
     private boolean tba;
     private String backgroundImage;
     private Date updated;
+    private LocalDate releaseDate;
+    private String description;
 
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "gamePlatformId.game")
-    private List<GamePlatform> platform;
+    public LocalDate getReleaseDate() {
+        return releaseDate;
+    }
+
+    public void setReleaseDate(LocalDate releaseDate) {
+        this.releaseDate = releaseDate;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "game")
+    private List<GamePlatform> platforms;
 }
